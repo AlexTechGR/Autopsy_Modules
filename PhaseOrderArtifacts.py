@@ -32,14 +32,14 @@ from org.sleuthkit.autopsy.casemodule.services import Blackboard
 class ArtifactGroupFactory(IngestModuleFactoryAdapter):
 
     # TODO: give it a unique name.  Will be shown in module list, logs, etc.
-    moduleName = "Find Reconnaissance files"
+    moduleName = "Artifact group (CKC)"
 
     def getModuleDisplayName(self):
         return self.moduleName
 
     # TODO: Give it a description
     def getModuleDescription(self):
-        return "Allocates artifacts into groups"
+        return "Groups artifacts by CKC phase"
 
     def getModuleVersionNumber(self):
         return "1.0"
