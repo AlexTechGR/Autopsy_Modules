@@ -52,6 +52,9 @@ class ArtifactGroupFactory(IngestModuleFactoryAdapter):
     def createFileIngestModule(self, ingestOptions):
         return ArtifactGroup()
 
+    def getDefaultIngestJobSettings(self):
+        return GenericIngestModuleJobSettings()
+
 
 # File-level ingest module.  One gets created per thread.
 # TODO: Rename this to something more specific. Could just remove "Factory" from above name.
@@ -69,10 +72,8 @@ class ArtifactGroup(FileIngestModule):
     # TODO: Add any setup code that you need here.
     def startUp(self, context):
         self.filesFound = 0
-
-        # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
-        # raise IngestModuleException("Oh No!")
-        pass
+        # self.logger.logp(Level.INFO, Process_EVTX1WithUI.__name__, "startUp", "All Events CHecked")
+    pass
 
     # Where the analysis is done.  Each file will be passed into here.
     # The 'file' object being passed in is of type org.sleuthkit.datamodel.AbstractFile.
@@ -89,16 +90,16 @@ class ArtifactGroup(FileIngestModule):
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
 
         # For an example, we will flag files with .txt in the name and make a blackboard artifact.
-        if file.getName().lower().endswith(".evtx"):
+        if file.getName().lower().endswith(".log"):
 
-            self.log(Level.INFO, "Found an event log file: " + file.getName())
+            self.log(Level.INFO, "Found an log file: " + file.getName())
             self.filesFound+=1
 
             # Make an artifact on the blackboard.  TSK_INTERESTING_FILE_HIT is a generic type of
             # artifact.  Refer to the developer docs for other examples.
             art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
             att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
-                  ArtifactGroupFactory.moduleName, "Reconnaissance ")
+                  ArtifactGroupFactory.moduleName, "Delivery")
             art.addAttribute(att)
 
             try:
@@ -120,7 +121,7 @@ class ArtifactGroup(FileIngestModule):
                 attributeList = artifact.getAttributes()
                 for attrib in attributeList:
                     self.log(Level.INFO, attrib.toString())
-            
+
             # To further the example, this code will read the contents of the file and count the number of bytes
             inputStream = ReadContentInputStream(file)
             buffer = jarray.zeros(1024, "b")
@@ -132,7 +133,6 @@ class ArtifactGroup(FileIngestModule):
 
         return IngestModule.ProcessResult.OK
 
-    # Where any shutdown code is run and resources are freed.
     # TODO: Add any shutdown code that you need here.
     def shutDown(self):
         # As a final part of this example, we'll send a message to the ingest inbox with the number of files found (in this thread)
