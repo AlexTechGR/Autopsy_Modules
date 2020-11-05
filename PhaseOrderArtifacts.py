@@ -99,7 +99,7 @@ class ArtifactGroup(FileIngestModule):
             # artifact.  Refer to the developer docs for other examples.
             art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
             att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
-                  ArtifactGroupFactory.moduleName, "Delivery")
+                  ArtifactGroupFactory.moduleName, "Reconnaissance")
             art.addAttribute(att)
 
             try:
