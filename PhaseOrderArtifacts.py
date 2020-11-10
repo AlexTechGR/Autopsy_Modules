@@ -89,10 +89,10 @@ class ArtifactGroup(FileIngestModule):
         # Use blackboard class to index blackboard artifacts for keyword search
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
 
-        # For an example, we will flag files with .txt in the name and make a blackboard artifact.
-        if file.getName().lower().endswith(".log"):
+        # Find Reconnaissance clues
+        if file.getName().lower().endswith(".log") or file.getName().lower().endswith(".evt") or file.getName().lower().endswith(".evtx") or file.getName().lower().endswith(".pcap") :
 
-            self.log(Level.INFO, "Found an log file: " + file.getName())
+            self.log(Level.INFO, "Found a Reconnaissance file: " + file.getName())
             self.filesFound+=1
 
             # Make an artifact on the blackboard.  TSK_INTERESTING_FILE_HIT is a generic type of
@@ -100,6 +100,48 @@ class ArtifactGroup(FileIngestModule):
             art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
             att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
                   ArtifactGroupFactory.moduleName, "Reconnaissance")
+            art.addAttribute(att)
+
+            try:
+                # index the artifact for keyword search
+                blackboard.indexArtifact(art)
+            except Blackboard.BlackboardException as e:
+                self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
+
+            # Fire an event to notify the UI and others that there is a new artifact
+            IngestServices.getInstance().fireModuleDataEvent(
+                ModuleDataEvent(ArtifactGroupFactory.moduleName,
+                    BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT, None))
+
+            # For the example (this wouldn't be needed normally), we'll query the blackboard for data that was added
+            # by other modules. We then iterate over its attributes.  We'll just print them, but you would probably
+            # want to do something with them.
+            artifactList = file.getArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
+            for artifact in artifactList:
+                attributeList = artifact.getAttributes()
+                for attrib in attributeList:
+                    self.log(Level.INFO, attrib.toString())
+
+            # To further the example, this code will read the contents of the file and count the number of bytes
+            inputStream = ReadContentInputStream(file)
+            buffer = jarray.zeros(1024, "b")
+            totLen = 0
+            len = inputStream.read(buffer)
+            while (len != -1):
+                    totLen = totLen + len
+                    len = inputStream.read(buffer)
+
+        # Find Delivery clues
+        if file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.TSK_WEB_DOWNLOAD :
+
+            self.log(Level.INFO, "Found a Delivery  file: " + file.getName())
+            self.filesFound+=1
+
+            # Make an artifact on the blackboard.  TSK_INTERESTING_FILE_HIT is a generic type of
+            # artifact.  Refer to the developer docs for other examples.
+            art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
+            att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
+                  ArtifactGroupFactory.moduleName, "Delivery ")
             art.addAttribute(att)
 
             try:
