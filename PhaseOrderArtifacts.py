@@ -4,6 +4,8 @@
 
 import jarray
 import inspect
+import os
+import subprocess
 from java.lang import System
 from java.util.logging import Level
 from org.sleuthkit.datamodel import SleuthkitCase
@@ -11,20 +13,21 @@ from org.sleuthkit.datamodel import AbstractFile
 from org.sleuthkit.datamodel import ReadContentInputStream
 from org.sleuthkit.datamodel import BlackboardArtifact
 from org.sleuthkit.datamodel import BlackboardAttribute
-from org.sleuthkit.datamodel import TskData
 from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
-from org.sleuthkit.autopsy.ingest import FileIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
+from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
 from org.sleuthkit.autopsy.ingest import ModuleDataEvent
 from org.sleuthkit.autopsy.coreutils import Logger
+from org.sleuthkit.autopsy.coreutils import PlatformUtil
 from org.sleuthkit.autopsy.casemodule import Case
 from org.sleuthkit.autopsy.casemodule.services import Services
 from org.sleuthkit.autopsy.casemodule.services import FileManager
-from org.sleuthkit.autopsy.casemodule.services import Blackboard
+from org.sleuthkit.autopsy.datamodel import ContentUtils
 
 # Factory that defines the name and details of the module and allows Autopsy
 # to create instances of the modules that will do the anlaysis.
@@ -44,64 +47,71 @@ class ArtifactGroupFactory(IngestModuleFactoryAdapter):
     def getModuleVersionNumber(self):
         return "1.0"
 
-    # Return true if module wants to get called for each file
-    def isFileIngestModuleFactory(self):
+    def isDataSourceIngestModuleFactory(self):
         return True
 
-    # can return null if isFileIngestModuleFactory returns false
-    def createFileIngestModule(self, ingestOptions):
+    def createDataSourceIngestModule(self, ingestOptions):
         return ArtifactGroup()
 
-    def getDefaultIngestJobSettings(self):
-        return GenericIngestModuleJobSettings()
 
 
 # File-level ingest module.  One gets created per thread.
 # TODO: Rename this to something more specific. Could just remove "Factory" from above name.
 # Looks at the attributes of the passed in file.
-class ArtifactGroup(FileIngestModule):
+class ArtifactGroup(DataSourceIngestModule):
 
     _logger = Logger.getLogger(ArtifactGroupFactory.moduleName)
 
     def log(self, level, msg):
         self._logger.logp(level, self.__class__.__name__, inspect.stack()[1][3], msg)
+    def __init__(self):
+        self.context = None
 
     # Where any setup and configuration is done
     # 'context' is an instance of org.sleuthkit.autopsy.ingest.IngestJobContext.
     # See: http://sleuthkit.org/autopsy/docs/api-docs/4.6.0/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_ingest_job_context.html
     # TODO: Add any setup code that you need here.
     def startUp(self, context):
-        self.filesFound = 0
-        # self.logger.logp(Level.INFO, Process_EVTX1WithUI.__name__, "startUp", "All Events CHecked")
+        self.context = context
     pass
 
     # Where the analysis is done.  Each file will be passed into here.
     # The 'file' object being passed in is of type org.sleuthkit.datamodel.AbstractFile.
     # See: http://www.sleuthkit.org/sleuthkit/docs/jni-docs/4.6.0/classorg_1_1sleuthkit_1_1datamodel_1_1_abstract_file.html
     # TODO: Add your analysis code in here.
-    def process(self, file):
-        # Skip non-files
-        if ((file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.UNALLOC_BLOCKS) or
-            (file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.UNUSED_BLOCKS) or
-            (file.isFile() == False)):
-            return IngestModule.ProcessResult.OK
+    def process(self, dataSource, progressBar):
+
+        # we don't know how much work there is yet
+        progressBar.switchToIndeterminate()
 
         # Use blackboard class to index blackboard artifacts for keyword search
+        case = Case.getCurrentCase().getSleuthkitCase()
+        self.log(Level.INFO, "Case Name: " + str(case))
         blackboard = Case.getCurrentCase().getServices().getBlackboard()
+        fileManager = Case.getCurrentCase().getServices().getFileManager()
 
         # Find Reconnaissance clues
-        if file.getName().lower().endswith(".log") or file.getName().lower().endswith(".evt") or file.getName().lower().endswith(".evtx") or file.getName().lower().endswith(".pcap") :
+        files = []
+        files = fileManager.findFiles(dataSource, "%.log")
+        files += fileManager.findFiles(dataSource, "%.evt")
+        files += fileManager.findFiles(dataSource, "%.evtx")
+        files += fileManager.findFiles(dataSource, "%.pcap")
 
-            self.log(Level.INFO, "Found a Reconnaissance file: " + file.getName())
-            self.filesFound+=1
+        numFiles = len(files)
+        self.log(Level.INFO, "found " + str(numFiles) + " files")
+        progressBar.switchToDeterminate(numFiles)
+        fileCount = 0;
 
+        for file in files:
+            fileCount += 1
+            self.log(Level.INFO, "++++++Processing file: " + file.getName())
+            self.log(Level.INFO, "File count:" + str(fileCount))
             # Make an artifact on the blackboard.  TSK_INTERESTING_FILE_HIT is a generic type of
             # artifact.  Refer to the developer docs for other examples.
             art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
             att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
-                  ArtifactGroupFactory.moduleName, "Reconnaissance")
+                                      ArtifactGroupFactory.moduleName, "Reconnaissance")
             art.addAttribute(att)
-
             try:
                 # index the artifact for keyword search
                 blackboard.indexArtifact(art)
@@ -113,37 +123,31 @@ class ArtifactGroup(FileIngestModule):
                 ModuleDataEvent(ArtifactGroupFactory.moduleName,
                     BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT, None))
 
-            # For the example (this wouldn't be needed normally), we'll query the blackboard for data that was added
-            # by other modules. We then iterate over its attributes.  We'll just print them, but you would probably
-            # want to do something with them.
-            artifactList = file.getArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
-            for artifact in artifactList:
-                attributeList = artifact.getAttributes()
-                for attrib in attributeList:
-                    self.log(Level.INFO, attrib.toString())
-
-            # To further the example, this code will read the contents of the file and count the number of bytes
-            inputStream = ReadContentInputStream(file)
-            buffer = jarray.zeros(1024, "b")
-            totLen = 0
-            len = inputStream.read(buffer)
-            while (len != -1):
-                    totLen = totLen + len
-                    len = inputStream.read(buffer)
+        # Find Weaponization  clues
+        # dont even know what to look for
+        files = []
 
         # Find Delivery clues
-        if file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.TSK_WEB_DOWNLOAD :
+        files = []
+        files = fileManager.findFiles(dataSource, "%", "%/Users/%/Downloads/")
+        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Local\Microsoft\Credentials")
+        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Roaming\Skype\<skype-name>")
+        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Roaming\Microsoft\Windows\IEDownloadHistory\index.dat")
+        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Local\Microsoft\Windows\WebCache\WebCacheV*.dat")
+        files += fileManager.findFiles(dataSource, "%", "%userprofile%\AppData\Roaming\Mozilla\ Firefox\Profiles\<random text>.default\downloads.sqlite")
+        files += fileManager.findFiles(dataSource, "%", "%userprofile%\AppData\Roaming\Mozilla\ Firefox\Profiles\<random text>.default\places.sqlite")
+        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Local\Google\Chrome\User Data\Default\History")
 
-            self.log(Level.INFO, "Found a Delivery  file: " + file.getName())
-            self.filesFound+=1
-
+        for file in files:
+            fileCount += 1
+            self.log(Level.INFO, "++++++Processing file: " + file.getName())
+            self.log(Level.INFO, "File count:" + str(fileCount))
             # Make an artifact on the blackboard.  TSK_INTERESTING_FILE_HIT is a generic type of
             # artifact.  Refer to the developer docs for other examples.
             art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
             att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
-                  ArtifactGroupFactory.moduleName, "Delivery ")
+                                      ArtifactGroupFactory.moduleName, "Delivery")
             art.addAttribute(att)
-
             try:
                 # index the artifact for keyword search
                 blackboard.indexArtifact(art)
@@ -153,25 +157,23 @@ class ArtifactGroup(FileIngestModule):
             # Fire an event to notify the UI and others that there is a new artifact
             IngestServices.getInstance().fireModuleDataEvent(
                 ModuleDataEvent(ArtifactGroupFactory.moduleName,
-                    BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT, None))
+                                BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT, None))
+        #if file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.TSK_WEB_DOWNLOAD :
 
-            # For the example (this wouldn't be needed normally), we'll query the blackboard for data that was added
-            # by other modules. We then iterate over its attributes.  We'll just print them, but you would probably
-            # want to do something with them.
-            artifactList = file.getArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
-            for artifact in artifactList:
-                attributeList = artifact.getAttributes()
-                for attrib in attributeList:
-                    self.log(Level.INFO, attrib.toString())
+        # Find Exploitation   clues
+        #files = []
 
-            # To further the example, this code will read the contents of the file and count the number of bytes
-            inputStream = ReadContentInputStream(file)
-            buffer = jarray.zeros(1024, "b")
-            totLen = 0
-            len = inputStream.read(buffer)
-            while (len != -1):
-                    totLen = totLen + len
-                    len = inputStream.read(buffer)
+        # Find Installation   clues
+        #files = []
+
+        # Find Command and Control  clues
+        #files = []
+
+        # Find Actions on Objective  clues
+        #files = []
+
+
+
 
         return IngestModule.ProcessResult.OK
 
