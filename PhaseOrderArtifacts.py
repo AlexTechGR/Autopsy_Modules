@@ -92,10 +92,24 @@ class ArtifactGroup(DataSourceIngestModule):
 
         # Find Reconnaissance clues
         files = []
-        files = fileManager.findFiles(dataSource, "%.log")
-        files += fileManager.findFiles(dataSource, "%.evt")
-        files += fileManager.findFiles(dataSource, "%.evtx")
-        files += fileManager.findFiles(dataSource, "%.pcap")
+        #files = fileManager.findFiles(dataSource, "%.log")
+        #files += fileManager.findFiles(dataSource, "%.evt")
+        #files += fileManager.findFiles(dataSource, "%.evtx")
+        #files += fileManager.findFiles(dataSource, "%.pcap")
+
+        #skCase = Case.getCurrentCase().getSleuthkitCase();
+        #skCase_Tran = skCase.beginTransaction()
+        #artID_evtx = skCase.getArtifactTypeID("TSK_EVTX_LOGS")
+        #artifactList = file.getArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
+
+        self.log(Level.INFO, "test1")
+        artifactList = case.getBlackboardArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_WEB_DOWNLOAD)
+        self.log(Level.INFO,  "number: "+str(len(artifactList)))
+        for artifact in artifactList:
+            artifact.setArtifactID(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
+            att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
+                                      ArtifactGroupFactory.moduleName, "test")
+            artifact.addAttribute(att)
 
         numFiles = len(files)
         self.log(Level.INFO, "found " + str(numFiles) + " files")
@@ -112,6 +126,7 @@ class ArtifactGroup(DataSourceIngestModule):
             att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
                                       ArtifactGroupFactory.moduleName, "Reconnaissance")
             art.addAttribute(att)
+
             try:
                 # index the artifact for keyword search
                 blackboard.indexArtifact(art)
@@ -123,20 +138,16 @@ class ArtifactGroup(DataSourceIngestModule):
                 ModuleDataEvent(ArtifactGroupFactory.moduleName,
                     BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT, None))
 
-        # Find Weaponization  clues
-        # dont even know what to look for
-        files = []
-
         # Find Delivery clues
         files = []
         files = fileManager.findFiles(dataSource, "%", "%/Users/%/Downloads/")
-        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Local\Microsoft\Credentials")
-        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Roaming\Skype\<skype-name>")
-        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Roaming\Microsoft\Windows\IEDownloadHistory\index.dat")
-        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Local\Microsoft\Windows\WebCache\WebCacheV*.dat")
-        files += fileManager.findFiles(dataSource, "%", "%userprofile%\AppData\Roaming\Mozilla\ Firefox\Profiles\<random text>.default\downloads.sqlite")
-        files += fileManager.findFiles(dataSource, "%", "%userprofile%\AppData\Roaming\Mozilla\ Firefox\Profiles\<random text>.default\places.sqlite")
-        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Local\Google\Chrome\User Data\Default\History")
+        files += fileManager.findFiles(dataSource, "%", "%\AppData\Local\Microsoft\Credentials")
+        files += fileManager.findFiles(dataSource, "%", "%\AppData\Roaming\Skype\<skype-name>")
+        files += fileManager.findFiles(dataSource, "%", "%\AppData\Roaming\Microsoft\Windows\IEDownloadHistory\index.dat")
+        files += fileManager.findFiles(dataSource, "%", "%\AppData\Local\Microsoft\Windows\WebCache\WebCacheV*.dat")
+        files += fileManager.findFiles(dataSource, "%", "%\AppData\Roaming\Mozilla\ Firefox\Profiles\<random text>.default\downloads.sqlite")
+        files += fileManager.findFiles(dataSource, "%", "%\AppData\Roaming\Mozilla\ Firefox\Profiles\<random text>.default\places.sqlite")
+        files += fileManager.findFiles(dataSource, "%", "%\AppData\Local\Google\Chrome\User Data\Default\History")
 
         for file in files:
             fileCount += 1
