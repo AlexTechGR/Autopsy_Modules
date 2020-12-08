@@ -91,82 +91,30 @@ class ArtifactGroup(DataSourceIngestModule):
         fileManager = Case.getCurrentCase().getServices().getFileManager()
 
         # Find Reconnaissance clues
-        files = []
-        #files = fileManager.findFiles(dataSource, "%.log")
-        #files += fileManager.findFiles(dataSource, "%.evt")
-        #files += fileManager.findFiles(dataSource, "%.evtx")
-        #files += fileManager.findFiles(dataSource, "%.pcap")
-
-        #skCase = Case.getCurrentCase().getSleuthkitCase();
-        #skCase_Tran = skCase.beginTransaction()
-        #artID_evtx = skCase.getArtifactTypeID("TSK_EVTX_LOGS")
-        #artifactList = file.getArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
-
-        # self.log(Level.INFO, "test1")
-        #self.log(Level.INFO, "number: " + str(len(artifactList)))
-        artifactList = case.getBlackboardArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_WEB_DOWNLOAD)
+        id = case.getArtifactTypeID("TSK_EVTX_LOGS")
+        id2 = case.getArtifactTypeID("TSK_EVTX_LOGS_LONG")
+        artifactList = case.getBlackboardArtifacts(id)
+        artifactList += case.getBlackboardArtifacts(id2)
+        #artifactList += case.getBlackboardArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_EVTX_LOGS_LONG)
         for artifact in artifactList:
-            #self.log(Level.INFO, "test1")
+            # self.log(Level.INFO, "test1")
             id = artifact.getObjectID()
             file = case.getAbstractFileById(id)
-            art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
-            att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
-                                      ArtifactGroupFactory.moduleName, "Test")
-            art.addAttribute(att)
-            
-
-        numFiles = len(files)
-        self.log(Level.INFO, "found " + str(numFiles) + " files")
-        progressBar.switchToDeterminate(numFiles)
-        fileCount = 0;
-
-        for file in files:
-            fileCount += 1
-            self.log(Level.INFO, "++++++Processing file: " + file.getName())
-            self.log(Level.INFO, "File count:" + str(fileCount))
-            # Make an artifact on the blackboard.  TSK_INTERESTING_FILE_HIT is a generic type of
-            # artifact.  Refer to the developer docs for other examples.
             art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
             att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
                                       ArtifactGroupFactory.moduleName, "Reconnaissance")
             art.addAttribute(att)
 
-            try:
-                # index the artifact for keyword search
-                blackboard.indexArtifact(art)
-            except Blackboard.BlackboardException as e:
-                self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
-
-            # Fire an event to notify the UI and others that there is a new artifact
-            IngestServices.getInstance().fireModuleDataEvent(
-                ModuleDataEvent(ArtifactGroupFactory.moduleName,
-                    BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT, None))
-
         # Find Delivery clues
-        files = []
-        files = fileManager.findFiles(dataSource, "%", "%/Users/%/Downloads/")
-
-        for file in files:
-            fileCount += 1
-            self.log(Level.INFO, "++++++Processing file: " + file.getName())
-            self.log(Level.INFO, "File count:" + str(fileCount))
-            # Make an artifact on the blackboard.  TSK_INTERESTING_FILE_HIT is a generic type of
-            # artifact.  Refer to the developer docs for other examples.
+        artifactList = case.getBlackboardArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_WEB_DOWNLOAD)
+        for artifact in artifactList:
+            # self.log(Level.INFO, "test1")
+            id = artifact.getObjectID()
+            file = case.getAbstractFileById(id)
             art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
             att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
                                       ArtifactGroupFactory.moduleName, "Delivery")
             art.addAttribute(att)
-            try:
-                # index the artifact for keyword search
-                blackboard.indexArtifact(art)
-            except Blackboard.BlackboardException as e:
-                self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
-
-            # Fire an event to notify the UI and others that there is a new artifact
-            IngestServices.getInstance().fireModuleDataEvent(
-                ModuleDataEvent(ArtifactGroupFactory.moduleName,
-                                BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT, None))
-        #if file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.TSK_WEB_DOWNLOAD :
 
         # Find Exploitation   clues
         #files = []
