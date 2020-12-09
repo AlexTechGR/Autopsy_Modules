@@ -84,81 +84,86 @@ class ArtifactGroup(DataSourceIngestModule):
         # we don't know how much work there is yet
         progressBar.switchToIndeterminate()
 
-        # Use blackboard class to index blackboard artifacts for keyword search
-        case = Case.getCurrentCase().getSleuthkitCase()
-        self.log(Level.INFO, "Case Name: " + str(case))
-        blackboard = Case.getCurrentCase().getServices().getBlackboard()
+
+        # get the sleuthkit database - it contains all artifacts of the blackboard
+        skCase = Case.getCurrentCase().getSleuthkitCase()
+        # create the fileManager
         fileManager = Case.getCurrentCase().getServices().getFileManager()
+        self.log(Level.INFO, "Case Name: " + str(skCase))
 
-        # Find Reconnaissance clues
-        files = []
-        files = fileManager.findFiles(dataSource, "%.log")
-        files += fileManager.findFiles(dataSource, "%.evt")
-        files += fileManager.findFiles(dataSource, "%.evtx")
-        files += fileManager.findFiles(dataSource, "%.pcap")
+        # # Find Reconnaissance clues
+        # id = skCase.getArtifactTypeID("TSK_EVTX_LOGS")
+        # id2 = skCase.getArtifactTypeID("TSK_EVTX_LOGS_LONG")
+        # artifactList = skCase.getBlackboardArtifacts(id)
+        # artifactList += skCase.getBlackboardArtifacts(id2)
+        # #artifactList += case.getBlackboardArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_EVTX_LOGS_LONG)
+        # for artifact in artifactList:
+        #     # self.log(Level.INFO, "test1")
+        #     id = artifact.getObjectID()
+        #     file = skCase.getAbstractFileById(id)
+        #     art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
+        #     att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
+        #                               ArtifactGroupFactory.moduleName, "Reconnaissance")
+        #     art.addAttribute(att)
 
-        numFiles = len(files)
-        self.log(Level.INFO, "found " + str(numFiles) + " files")
-        progressBar.switchToDeterminate(numFiles)
-        fileCount = 0;
-
-        for file in files:
-            fileCount += 1
-            self.log(Level.INFO, "++++++Processing file: " + file.getName())
-            self.log(Level.INFO, "File count:" + str(fileCount))
-            # Make an artifact on the blackboard.  TSK_INTERESTING_FILE_HIT is a generic type of
-            # artifact.  Refer to the developer docs for other examples.
-            art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
-            att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
-                                      ArtifactGroupFactory.moduleName, "Reconnaissance")
-            art.addAttribute(att)
-            try:
-                # index the artifact for keyword search
-                blackboard.indexArtifact(art)
-            except Blackboard.BlackboardException as e:
-                self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
-
-            # Fire an event to notify the UI and others that there is a new artifact
-            IngestServices.getInstance().fireModuleDataEvent(
-                ModuleDataEvent(ArtifactGroupFactory.moduleName,
-                    BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT, None))
-
-        # Find Weaponization  clues
-        # dont even know what to look for
-        files = []
 
         # Find Delivery clues
-        files = []
-        files = fileManager.findFiles(dataSource, "%", "%/Users/%/Downloads/")
-        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Local\Microsoft\Credentials")
-        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Roaming\Skype\<skype-name>")
-        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Roaming\Microsoft\Windows\IEDownloadHistory\index.dat")
-        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Local\Microsoft\Windows\WebCache\WebCacheV*.dat")
-        files += fileManager.findFiles(dataSource, "%", "%userprofile%\AppData\Roaming\Mozilla\ Firefox\Profiles\<random text>.default\downloads.sqlite")
-        files += fileManager.findFiles(dataSource, "%", "%userprofile%\AppData\Roaming\Mozilla\ Firefox\Profiles\<random text>.default\places.sqlite")
-        files += fileManager.findFiles(dataSource, "%", "%USERPROFILE%\AppData\Local\Google\Chrome\User Data\Default\History")
+        # get the sleuthkit database. See org.sleuthkit.datamodel.sleuthkitcase
+        # http://sleuthkit.org/sleuthkit/docs/jni-docs/4.10.1/annotated.html
+        skCase = Case.getCurrentCase().getSleuthkitCase()
+        # create the fileManager
+        fileManager = Case.getCurrentCase().getServices().getFileManager()
+        # get the artifact_type_id of the TSK_WEB_DOWNLOAD artifact type
+        artWebDownloadId = skCase.getArtifactTypeID("TSK_WEB_DOWNLOAD")
+        # print it to the log file
+        self.log(Level.INFO, "Artifact type ID of TSK_WEB_DOWNLOAD:  " + str(artWebDownloadId))
+        # get all artifacts that have this type ID from the database using the Sleuthkit API - not the database via sql queries
+        webDownloadArtifacts = skCase.getBlackboardArtifacts(artWebDownloadId)
+        # print the number of the artifacts in the log file
+        self.log(Level.INFO, "Number of TSK_WEB_DOWNLOAD artifacts found:  " + str(len(webDownloadArtifacts)))
+        # create new artifact type
+        try:
+            skCase.addArtifactType("TSK_CKC_WEB_DOWNLOAD", "CKC Delivery Web Downloads")
+        except:
+            # if the artifact type already exists do nothing
+            self.log(Level.INFO, "TSK_CKC_WEB_DOWNLOAD artifact already exists")
+        # the attributes of the TSK_CKC_WEB_DOWNLOAD will be the same with those of TSK_WEB_DOWNLOAD
+        # so we use them instead of creating new ones
 
-        for file in files:
-            fileCount += 1
-            self.log(Level.INFO, "++++++Processing file: " + file.getName())
-            self.log(Level.INFO, "File count:" + str(fileCount))
-            # Make an artifact on the blackboard.  TSK_INTERESTING_FILE_HIT is a generic type of
-            # artifact.  Refer to the developer docs for other examples.
-            art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT)
-            att = BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME,
-                                      ArtifactGroupFactory.moduleName, "Delivery")
-            art.addAttribute(att)
+        # first we need to get the IDs of the TSK_CKC_WEB_DOWNLOAD and of the attributes of the TSK_WEB_DOWNLOAD
+        artID_CKC_WEB_DOWNLOAD = skCase.getArtifactTypeID("TSK_CKC_WEB_DOWNLOAD")
+        attID_TSK_PATH = skCase.getAttributeType("TSK_PATH")
+        attID_TSK_URL = skCase.getAttributeType("TSK_URL")
+        attID_TSK_DATETIME_ACCESSED = skCase.getAttributeType("TSK_DATETIME_ACCESSED")
+        attID_TSK_DOMAIN = skCase.getAttributeType("TSK_DOMAIN")
+        attID_TSK_PATH_ID = skCase.getAttributeType("TSK_PATH_ID")
+        attID_TSK_PROG_NAME = skCase.getAttributeType("TSK_PROG_NAME")
+
+        # for each TSK_WEB_DOWNLOAD artifact
+        for wdArt in webDownloadArtifacts:
+            # get the obj_id -> this is the ID of the Source file
+            sourceFileID = wdArt.getObjectID()
+            # get the actual file using its obj_id
+            sourceFile = skCase.getAbstractFileById(sourceFileID)
+            # create a TSK_CKC_WEB_DOWNLOAD blackboard artifact based on this TSK_WEB_DOWNLOAD
             try:
-                # index the artifact for keyword search
-                blackboard.indexArtifact(art)
-            except Blackboard.BlackboardException as e:
-                self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
-
-            # Fire an event to notify the UI and others that there is a new artifact
-            IngestServices.getInstance().fireModuleDataEvent(
-                ModuleDataEvent(ArtifactGroupFactory.moduleName,
-                                BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_FILE_HIT, None))
-        #if file.getType() == TskData.TSK_DB_FILES_TYPE_ENUM.TSK_WEB_DOWNLOAD :
+                art = sourceFile.newArtifact(artID_CKC_WEB_DOWNLOAD)
+                art.addAttributes((
+                    (BlackboardAttribute(attID_TSK_PATH, ArtifactGroupFactory.moduleName,
+                                         wdArt.getAttribute(attID_TSK_PATH).getValueString())), \
+                    (BlackboardAttribute(attID_TSK_URL, ArtifactGroupFactory.moduleName,
+                                         wdArt.getAttribute(attID_TSK_URL).getValueString())), \
+                    (BlackboardAttribute(attID_TSK_DATETIME_ACCESSED, ArtifactGroupFactory.moduleName,
+                                         wdArt.getAttribute(attID_TSK_DATETIME_ACCESSED).getValueLong())), \
+                    (BlackboardAttribute(attID_TSK_DOMAIN, ArtifactGroupFactory.moduleName,
+                                         wdArt.getAttribute(attID_TSK_DOMAIN).getValueString())), \
+                    (BlackboardAttribute(attID_TSK_PROG_NAME, ArtifactGroupFactory.moduleName,
+                                         wdArt.getAttribute(attID_TSK_PROG_NAME).getValueString())), \
+                    (BlackboardAttribute(attID_TSK_PATH_ID, ArtifactGroupFactory.moduleName,
+                                         wdArt.getAttribute(attID_TSK_PATH_ID).getValueLong()))
+                    ))
+            except:
+                self.log(Level.INFO, "Artifact cannot be created. Moved to next.")
 
         # Find Exploitation   clues
         #files = []
@@ -172,9 +177,6 @@ class ArtifactGroup(DataSourceIngestModule):
         # Find Actions on Objective  clues
         #files = []
 
-
-
-
         return IngestModule.ProcessResult.OK
 
     # TODO: Add any shutdown code that you need here.
@@ -184,3 +186,4 @@ class ArtifactGroup(DataSourceIngestModule):
             IngestMessage.MessageType.DATA, ArtifactGroupFactory.moduleName,
                 str(self.filesFound) + " files found")
         ingestServices = IngestServices.getInstance().postMessage(message)
+
