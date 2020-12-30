@@ -1,16 +1,29 @@
-#imports for evtx
-from java.lang import Class
-from java.lang import System
-from java.sql import DriverManager, SQLException
-from java.util.logging import Level
-from java.io import File
+
 
 import jarray
 import inspect
 import os
 import subprocess
+
+from javax.swing import JCheckBox
+from javax.swing import JList
+from javax.swing import JTextArea
+from javax.swing import BoxLayout
+from java.awt import GridLayout
+from java.awt import BorderLayout
+from javax.swing import BorderFactory
+from javax.swing import JToolBar
+from javax.swing import JPanel
+from javax.swing import JFrame
+from javax.swing import JScrollPane
+from javax.swing import JComponent
+from java.awt.event import KeyListener
+
+from java.lang import Class
 from java.lang import System
+from java.sql import DriverManager, SQLException
 from java.util.logging import Level
+from java.io import File
 from org.sleuthkit.datamodel import SleuthkitCase
 from org.sleuthkit.datamodel import AbstractFile
 from org.sleuthkit.datamodel import ReadContentInputStream
@@ -32,84 +45,42 @@ from org.sleuthkit.autopsy.casemodule.services import Services
 from org.sleuthkit.autopsy.casemodule.services import FileManager
 from org.sleuthkit.autopsy.datamodel import ContentUtils
 
-# Factory that defines the name and details of the module and allows Autopsy
-# to create instances of the modules that will do the anlaysis.
-# TODO: Rename this to something more specific.  Search and replace for it because it is used a few times
-class ArtifactGroupFactory(IngestModuleFactoryAdapter):
-
-    # TODO: give it a unique name.  Will be shown in module list, logs, etc.
-    moduleName = "Artifact group (CKC)"
-
-    def getModuleDisplayName(self):
-        return self.moduleName
-
-    # TODO: Give it a description
-    def getModuleDescription(self):
-        return "Groups artifacts by CKC phase"
-
-    def getModuleVersionNumber(self):
-        return "1.0"
-
-    def isDataSourceIngestModuleFactory(self):
-        return True
-
-    def createDataSourceIngestModule(self, ingestOptions):
-        return ArtifactGroup()
-
-
-
-# File-level ingest module.  One gets created per thread.
-# TODO: Rename this to something more specific. Could just remove "Factory" from above name.
-# Looks at the attributes of the passed in file.
-class ArtifactGroup(DataSourceIngestModule):
-
-    _logger = Logger.getLogger(ArtifactGroupFactory.moduleName)
-
-    def log(self, level, msg):
-        self._logger.logp(level, self.__class__.__name__, inspect.stack()[1][3], msg)
-    def __init__(self):
-        self.context = None
 
     # Where any setup and configuration is done
     # 'context' is an instance of org.sleuthkit.autopsy.ingest.IngestJobContext.
-    # See: http://sleuthkit.org/autopsy/docs/api-docs/4.6.0/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_ingest_job_context.html
-    # TODO: Add any setup code that you need here.
+    # See: http://sleuthkit.org/autopsy/docs/api-docs/3.1/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_ingest_job_context.html
     def startUp(self, context):
         self.context = context
-
-        # Check if Parser for .evtx is in place
+        # Get path to EXE based on where this script is run from.
+        # Assumes EXE is in same folder as script
+        # Verify it is there before any ingest starts
         if PlatformUtil.isWindowsOS():
             self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_EVTX.exe")
             if not os.path.exists(self.path_to_exe):
                 raise IngestModuleException("EXE was not found in module folder")
-    pass
+        pass
 
-    # Where the analysis is done.  Each file will be passed into here.
-    # The 'file' object being passed in is of type org.sleuthkit.datamodel.AbstractFile.
-    # See: http://www.sleuthkit.org/sleuthkit/docs/jni-docs/4.6.0/classorg_1_1sleuthkit_1_1datamodel_1_1_abstract_file.html
-    # TODO: Add your analysis code in here.
+    # Where the analysis is done.
+    # The 'dataSource' object being passed in is of type org.sleuthkit.datamodel.Content.
+    # See: http://www.sleuthkit.org/sleuthkit/docs/jni-docs/interfaceorg_1_1sleuthkit_1_1datamodel_1_1_content.html
+    # 'progressBar' is of type org.sleuthkit.autopsy.ingest.DataSourceIngestModuleProgress
+    # See: http://sleuthkit.org/autopsy/docs/api-docs/3.1/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_data_source_ingest_module_progress.html
     def process(self, dataSource, progressBar):
 
-        # we don't know how much work there is yet
-        progressBar.switchToIndeterminate()
-
-
-        #Find Reconnaissance clues
         # Check to see if the artifacts exist and if not then create it, also check to see if the attributes
         # exist and if not then create them
         skCase = Case.getCurrentCase().getSleuthkitCase();
         skCase_Tran = skCase.beginTransaction()
-
         try:
             self.log(Level.INFO, "Begin Create New Artifacts")
-            artID_evtx = skCase.addArtifactType("CKC_TSK_EVTX_LOGS", "CKC Reconnaissance Windows Event Logs")
+            artID_evtx = skCase.addArtifactType("CKC_TSK_EVTX_LOGS", "Windows Event Logs")
         except:
             self.log(Level.INFO, "Artifacts Creation Error, some artifacts may not exist now. ==> ")
             artID_evtx = skCase.getArtifactTypeID("CKC_TSK_EVTX_LOGS")
 
         try:
             self.log(Level.INFO, "Begin Create New Artifacts")
-            artID_evtx_Long = skCase.addArtifactType("CKC_TSK_EVTX_LOGS_LONG", "CKC Reconnaissance Windows Event Logs Long Tail Analysis")
+            artID_evtx_Long = skCase.addArtifactType("CKC_TSK_EVTX_LOGS_LONG", "Windows Event Logs Long Tail Analysis")
         except:
             self.log(Level.INFO, "Artifacts Creation Error, some artifacts may not exist now. ==> ")
             artID_evtx_Long = skCase.getArtifactTypeID("CKC_TSK_EVTX_LOGS")
@@ -229,6 +200,7 @@ class ArtifactGroup(DataSourceIngestModule):
         fileManager = Case.getCurrentCase().getServices().getFileManager()
         files = fileManager.findFiles(dataSource, "%.evtx")
 
+
         numFiles = len(files)
         self.log(Level.INFO, "found " + str(numFiles) + " files")
         progressBar.switchToDeterminate(numFiles)
@@ -320,24 +292,24 @@ class ArtifactGroup(DataSourceIngestModule):
                 art = file.newArtifact(artID_evtx)
 
                 art.addAttributes(
-                    ((BlackboardAttribute(attID_ev_cn, ArtifactGroupFactory.moduleName, Computer_Name)), \
-                     (BlackboardAttribute(attID_ev_ei, ArtifactGroupFactory.moduleName,
+                    ((BlackboardAttribute(attID_ev_cn, ParseEvtxDbIngestModuleFactory.moduleName, Computer_Name)), \
+                     (BlackboardAttribute(attID_ev_ei, ParseEvtxDbIngestModuleFactory.moduleName,
                                           Event_Identifier)), \
-                     (BlackboardAttribute(attID_ev_el, ArtifactGroupFactory.moduleName, Event_Level)), \
-                     (BlackboardAttribute(attID_ev_sn, ArtifactGroupFactory.moduleName,
+                     (BlackboardAttribute(attID_ev_el, ParseEvtxDbIngestModuleFactory.moduleName, Event_Level)), \
+                     (BlackboardAttribute(attID_ev_sn, ParseEvtxDbIngestModuleFactory.moduleName,
                                           Event_Source_Name)), \
-                     (BlackboardAttribute(attID_ev_usi, ArtifactGroupFactory.moduleName,
+                     (BlackboardAttribute(attID_ev_usi, ParseEvtxDbIngestModuleFactory.moduleName,
                                           Event_User_Security_Identifier)), \
-                     (BlackboardAttribute(attID_ev_et, ArtifactGroupFactory.moduleName, Event_Time)), \
-                     (BlackboardAttribute(attID_ev_dt, ArtifactGroupFactory.moduleName,
+                     (BlackboardAttribute(attID_ev_et, ParseEvtxDbIngestModuleFactory.moduleName, Event_Time)), \
+                     (BlackboardAttribute(attID_ev_dt, ParseEvtxDbIngestModuleFactory.moduleName,
                                           Event_Detail_Text))))
                 # These attributes may also be added in the future
-                # art.addAttribute(BlackboardAttribute(attID_ev_fn, ArtifactGroupFactory.moduleName, File_Name))
-                # art.addAttribute(BlackboardAttribute(attID_ev_rc, ArtifactGroupFactory.moduleName, Recovered_Record))
-                # art.addAttribute(BlackboardAttribute(attID_ev_eiq, ArtifactGroupFactory.moduleName, Event_Identifier_Qualifiers))
-                # art.addAttribute(BlackboardAttribute(attID_ev_oif, ArtifactGroupFactory.moduleName, Event_Offset))
-                # art.addAttribute(BlackboardAttribute(attID_ev_id, ArtifactGroupFactory.moduleName, Identifier))
-                # art.addAttribute(BlackboardAttribute(attID_ev_ete, ArtifactGroupFactory.moduleName, Event_Time_Epoch))
+                # art.addAttribute(BlackboardAttribute(attID_ev_fn, ParseEvtxDbIngestModuleFactory.moduleName, File_Name))
+                # art.addAttribute(BlackboardAttribute(attID_ev_rc, ParseEvtxDbIngestModuleFactory.moduleName, Recovered_Record))
+                # art.addAttribute(BlackboardAttribute(attID_ev_eiq, ParseEvtxDbIngestModuleFactory.moduleName, Event_Identifier_Qualifiers))
+                # art.addAttribute(BlackboardAttribute(attID_ev_oif, ParseEvtxDbIngestModuleFactory.moduleName, Event_Offset))
+                # art.addAttribute(BlackboardAttribute(attID_ev_id, ParseEvtxDbIngestModuleFactory.moduleName, Identifier))
+                # art.addAttribute(BlackboardAttribute(attID_ev_ete, ParseEvtxDbIngestModuleFactory.moduleName, Event_Time_Epoch))
 
             try:
                 stmt_1 = dbConn.createStatement()
@@ -366,18 +338,23 @@ class ArtifactGroup(DataSourceIngestModule):
 
                 self.log(Level.INFO, "Type of Object is ==> " + str(type(Event_ID_Count)))
 
-                art_1.addAttributes(((BlackboardAttribute(attID_ev_ei, ArtifactGroupFactory.moduleName,
+                art_1.addAttributes(((BlackboardAttribute(attID_ev_ei, ParseEvtxDbIngestModuleFactory.moduleName,
                                                           Event_Identifier)), \
-                                     (BlackboardAttribute(attID_ev_cnt, ArtifactGroupFactory.moduleName,
+                                     (BlackboardAttribute(attID_ev_cnt, ParseEvtxDbIngestModuleFactory.moduleName,
                                                           Event_ID_Count))))
 
-            self.log(Level.INFO, "test1")
+            # Fire an event to notify the UI and others that there are new artifacts
+            IngestServices.getInstance().fireModuleDataEvent(
+                ModuleDataEvent(ParseEvtxDbIngestModuleFactory.moduleName, artID_evtx_evt, None))
+            IngestServices.getInstance().fireModuleDataEvent(
+                ModuleDataEvent(ParseEvtxDbIngestModuleFactory.moduleName, artID_evtx_Long_evt, None))
+
             # Clean up
             stmt_1.close()
             stmt.close()
-            #dbConn.close()
-            #os.remove(lclDbPath)
-            self.log(Level.INFO, "mission failed 1")
+            dbConn.close()
+            os.remove(lclDbPath)
+
             # Clean up EventLog directory and files
             for file in files:
                 try:
@@ -389,156 +366,19 @@ class ArtifactGroup(DataSourceIngestModule):
             except:
                 self.log(Level.INFO, "removal of Event Logs directory failed " + temp_dir)
 
-            self.log(Level.INFO, "mission failed 2")
+            # Fire an event to notify the UI and others that there are new artifacts
+            IngestServices.getInstance().fireModuleDataEvent(
+                ModuleDataEvent(ParseEvtxDbIngestModuleFactory.moduleName, artID_evtx_evt, None))
+
             # After all databases, post a message to the ingest messages in box.
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                                                   "ParseEvtx", " Event Logs have been parsed ")
             IngestServices.getInstance().postMessage(message)
-            self.log(Level.INFO, "mission failed 3")
-        self.log(Level.INFO, "Procces EVTX complte")
+
+            # Fire an event to notify the UI and others that there are new artifacts
+            IngestServices.getInstance().fireModuleDataEvent(
+                ModuleDataEvent(ParseEvtxDbIngestModuleFactory.moduleName, artID_evtx_evt, None))
+
+            return IngestModule.ProcessResult.OK
 
 
-        # Find Delivery clues
-        # get the sleuthkit database. See org.sleuthkit.datamodel.sleuthkitcase
-        # http://sleuthkit.org/sleuthkit/docs/jni-docs/4.10.1/annotated.html
-        skCase = Case.getCurrentCase().getSleuthkitCase()
-        # create the fileManager
-        fileManager = Case.getCurrentCase().getServices().getFileManager()
-        # get the artifact_type_id of the TSK_WEB_DOWNLOAD artifact type
-        artWebDownloadId = skCase.getArtifactTypeID("TSK_WEB_DOWNLOAD")
-        # print it to the log file
-        self.log(Level.INFO, "Artifact type ID of TSK_WEB_DOWNLOAD:  " + str(artWebDownloadId))
-        # get all artifacts that have this type ID from the database using the Sleuthkit API - not the database via sql queries
-        webDownloadArtifacts = skCase.getBlackboardArtifacts(artWebDownloadId)
-        # print the number of the artifacts in the log file
-        self.log(Level.INFO, "Number of TSK_WEB_DOWNLOAD artifacts found:  " + str(len(webDownloadArtifacts)))
-        # create new artifact type
-        try:
-            skCase.addArtifactType("TSK_CKC_WEB_DOWNLOAD", "CKC Delivery Web Downloads")
-        except:
-            # if the artifact type already exists do nothing
-            self.log(Level.INFO, "TSK_CKC_WEB_DOWNLOAD artifact already exists")
-        # the attributes of the TSK_CKC_WEB_DOWNLOAD will be the same with those of TSK_WEB_DOWNLOAD
-        # so we use them instead of creating new ones
-
-        # first we need to get the IDs of the TSK_CKC_WEB_DOWNLOAD and of the attributes of the TSK_WEB_DOWNLOAD
-        artID_CKC_WEB_DOWNLOAD = skCase.getArtifactTypeID("TSK_CKC_WEB_DOWNLOAD")
-        attID_TSK_PATH = skCase.getAttributeType("TSK_PATH")
-        attID_TSK_URL = skCase.getAttributeType("TSK_URL")
-        attID_TSK_DATETIME_ACCESSED = skCase.getAttributeType("TSK_DATETIME_ACCESSED")
-        attID_TSK_DOMAIN = skCase.getAttributeType("TSK_DOMAIN")
-        attID_TSK_PATH_ID = skCase.getAttributeType("TSK_PATH_ID")
-        attID_TSK_PROG_NAME = skCase.getAttributeType("TSK_PROG_NAME")
-
-        # for each TSK_WEB_DOWNLOAD artifact
-        for wdArt in webDownloadArtifacts:
-            # get the obj_id -> this is the ID of the Source file
-            sourceFileID = wdArt.getObjectID()
-            # get the actual file using its obj_id
-            sourceFile = skCase.getAbstractFileById(sourceFileID)
-            # create a TSK_CKC_WEB_DOWNLOAD blackboard artifact based on this TSK_WEB_DOWNLOAD
-            try:
-                art = sourceFile.newArtifact(artID_CKC_WEB_DOWNLOAD)
-                art.addAttributes((
-                    (BlackboardAttribute(attID_TSK_PATH, ArtifactGroupFactory.moduleName,
-                                         wdArt.getAttribute(attID_TSK_PATH).getValueString())), \
-                    (BlackboardAttribute(attID_TSK_URL, ArtifactGroupFactory.moduleName,
-                                         wdArt.getAttribute(attID_TSK_URL).getValueString())), \
-                    (BlackboardAttribute(attID_TSK_DATETIME_ACCESSED, ArtifactGroupFactory.moduleName,
-                                         wdArt.getAttribute(attID_TSK_DATETIME_ACCESSED).getValueLong())), \
-                    (BlackboardAttribute(attID_TSK_DOMAIN, ArtifactGroupFactory.moduleName,
-                                         wdArt.getAttribute(attID_TSK_DOMAIN).getValueString())), \
-                    (BlackboardAttribute(attID_TSK_PROG_NAME, ArtifactGroupFactory.moduleName,
-                                         wdArt.getAttribute(attID_TSK_PROG_NAME).getValueString())), \
-                    (BlackboardAttribute(attID_TSK_PATH_ID, ArtifactGroupFactory.moduleName,
-                                         wdArt.getAttribute(attID_TSK_PATH_ID).getValueLong()))
-                    ))
-            except:
-                self.log(Level.INFO, "Artifact cannot be created. Moved to next.")
-
-        # Find email attachments ////////////////////////
-        skCase = Case.getCurrentCase().getSleuthkitCase()
-        fileManager = Case.getCurrentCase().getServices().getFileManager()
-        try:
-            artID_ckc_email_attach = skCase.addArtifactType("TSK_CKC_EMAIL_ATTACHMENTS",
-                                                            "CKC Delivery Email attachments")
-        except:
-            self.log(Level.INFO, "TSK_CKC_EMAIL_ATTACHMENTS artifact already exists")
-
-        files = fileManager.findFiles(dataSource, "%", "%/Users/%/AppData/Local/Microsoft/Outlook/")
-        files += fileManager.findFiles(dataSource, "%", "%/Users/%/AppData/Roaming/Thunderbird/Profiles/%/ImapMail/%/INBOX/%")
-        for file in files:
-            try:
-                art = file.newArtifact(artID_ckc_email_attach)
-            except:
-                self.log(Level.INFO, "Artifact cannot be created. Moved to next.")
-
-        # Get Devices Attached from blackboard ////////////////////////
-        artDevicesAttID = skCase.getArtifactTypeID("TSK_DEVICE_ATTACHED")
-        # print it to the log file
-        self.log(Level.INFO, "Artifact type ID of TSK_DEVICE_ATTACHED:  " + str(artDevicesAttID))
-        # get all artifacts that have this type ID from the database using the Sleuthkit API - not the database via sql queries
-        artDevicesAttArtifacts = skCase.getBlackboardArtifacts(artDevicesAttID)
-        # print the number of the artifacts in the log file
-        self.log(Level.INFO, "Number of TSK_DEVICE_ATTACHED artifacts found:  " + str(len(artDevicesAttArtifacts)))
-        # create new artifact type
-        try:
-            skCase.addArtifactType("TSK_CKC_DEVICE_ATTACHED", "CKC Delivery Device Attached")
-        except:
-            # if the artifact type already exists do nothing
-            self.log(Level.INFO, "TSK_CKC_DEVICE_ATTACHED artifact already exists")
-
-        # first we need to get the IDs of the TSK_CKC_WEB_DOWNLOAD and of the attributes of the TSK_WEB_DOWNLOAD
-        artID_CKC_DEVICE_ATTACHED = skCase.getArtifactTypeID("TSK_CKC_DEVICE_ATTACHED")
-        attID_TSK_DATETIME = skCase.getAttributeType("TSK_DATETIME")
-        attID_TSK_DEVICE_MAKE = skCase.getAttributeType("TSK_DEVICE_MAKE")
-        attID_TSK_DEVICE_MODEL = skCase.getAttributeType("TSK_DEVICE_MODEL")
-        attID_TSK_DEVICE_ID = skCase.getAttributeType("TSK_DEVICE_ID")
-        attID_TSK_PATH_ID = skCase.getAttributeType("TSK_PATH_ID")
-
-        for attDArt in artDevicesAttArtifacts:
-            # get the obj_id -> this is the ID of the Source file
-            sourceFileID = attDArt.getObjectID()
-            # get the actual file using its obj_id
-            sourceFile = skCase.getAbstractFileById(sourceFileID)
-            # create a TSK_CKC_WEB_DOWNLOAD blackboard artifact based on this TSK_WEB_DOWNLOAD
-            try:
-                art = sourceFile.newArtifact(artID_CKC_DEVICE_ATTACHED)
-                art.addAttributes((
-                    (BlackboardAttribute(attID_TSK_DATETIME, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_DATETIME).getValueString())), \
-                    (BlackboardAttribute(attID_TSK_DEVICE_MAKE, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_DEVICE_MAKE).getValueString())), \
-                    (BlackboardAttribute(attID_TSK_DEVICE_MODEL, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_DEVICE_MODEL).getValueLong())), \
-                    (BlackboardAttribute(attID_TSK_DEVICE_ID, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_DEVICE_ID).getValueString())), \
-                    (BlackboardAttribute(attID_TSK_PATH_ID, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_PATH_ID).getValueLong()))
-                ))
-            except:
-                self.log(Level.INFO, "Artifact cannot be created. Moved to next.")
-
-
-        # Find Exploitation   clues
-        #files = []
-
-        # Find Installation   clues
-        #files = []
-
-        # Find Command and Control  clues
-        #files = []
-
-        # Find Actions on Objective  clues
-        #files = []
-
-        dbConn.close()
-        return IngestModule.ProcessResult.OK
-
-    # TODO: Add any shutdown code that you need here.
-    def shutDown(self):
-        # As a final part of this example, we'll send a message to the ingest inbox with the number of files found (in this thread)
-        message = IngestMessage.createMessage(
-            IngestMessage.MessageType.DATA, ArtifactGroupFactory.moduleName,
-                str(self.filesFound) + " files found")
-        ingestServices = IngestServices.getInstance().postMessage(message)
