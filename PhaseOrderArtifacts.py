@@ -108,13 +108,6 @@ class ArtifactGroup(DataSourceIngestModule):
             artID_evtx = skCase.getArtifactTypeID("CKC_TSK_EVTX_LOGS")
 
         try:
-            self.log(Level.INFO, "Begin Create New Artifacts")
-            artID_evtx_Long = skCase.addArtifactType("CKC_TSK_EVTX_LOGS_LONG", "CKC Reconnaissance Windows Event Logs Long Tail Analysis")
-        except:
-            self.log(Level.INFO, "Artifacts Creation Error, some artifacts may not exist now. ==> ")
-            artID_evtx_Long = skCase.getArtifactTypeID("CKC_TSK_EVTX_LOGS")
-
-        try:
             attID_ev_fn = skCase.addArtifactAttributeType("TSK_EVTX_FILE_NAME",
                                                           BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING,
                                                           "Event Log File Name")
@@ -204,8 +197,6 @@ class ArtifactGroup(DataSourceIngestModule):
         # Get the new artifacts and attributes that were just created
         artID_evtx = skCase.getArtifactTypeID("CKC_TSK_EVTX_LOGS")
         artID_evtx_evt = skCase.getArtifactType("CKC_TSK_EVTX_LOGS")
-        artID_evtx_Long = skCase.getArtifactTypeID("CKC_TSK_EVTX_LOGS_LONG")
-        artID_evtx_Long_evt = skCase.getArtifactType("CKC_TSK_EVTX_LOGS_LONG")
         attID_ev_fn = skCase.getAttributeType("TSK_EVTX_FILE_NAME")
         attID_ev_rc = skCase.getAttributeType("TSK_EVTX_RECOVERED_RECORD")
         attID_ev_cn = skCase.getAttributeType("TSK_EVTX_COMPUTER_NAME")
@@ -321,16 +312,12 @@ class ArtifactGroup(DataSourceIngestModule):
 
                 art.addAttributes(
                     ((BlackboardAttribute(attID_ev_cn, ArtifactGroupFactory.moduleName, Computer_Name)), \
-                     (BlackboardAttribute(attID_ev_ei, ArtifactGroupFactory.moduleName,
-                                          Event_Identifier)), \
+                     (BlackboardAttribute(attID_ev_ei, ArtifactGroupFactory.moduleName, Event_Identifier)), \
                      (BlackboardAttribute(attID_ev_el, ArtifactGroupFactory.moduleName, Event_Level)), \
-                     (BlackboardAttribute(attID_ev_sn, ArtifactGroupFactory.moduleName,
-                                          Event_Source_Name)), \
-                     (BlackboardAttribute(attID_ev_usi, ArtifactGroupFactory.moduleName,
-                                          Event_User_Security_Identifier)), \
+                     (BlackboardAttribute(attID_ev_sn, ArtifactGroupFactory.moduleName, Event_Source_Name)), \
+                     (BlackboardAttribute(attID_ev_usi, ArtifactGroupFactory.moduleName, Event_User_Security_Identifier)), \
                      (BlackboardAttribute(attID_ev_et, ArtifactGroupFactory.moduleName, Event_Time)), \
-                     (BlackboardAttribute(attID_ev_dt, ArtifactGroupFactory.moduleName,
-                                          Event_Detail_Text))))
+                     (BlackboardAttribute(attID_ev_dt, ArtifactGroupFactory.moduleName, Event_Detail_Text))))
                 # These attributes may also be added in the future
                 # art.addAttribute(BlackboardAttribute(attID_ev_fn, ArtifactGroupFactory.moduleName, File_Name))
                 # art.addAttribute(BlackboardAttribute(attID_ev_rc, ArtifactGroupFactory.moduleName, Recovered_Record))
@@ -360,24 +347,14 @@ class ArtifactGroup(DataSourceIngestModule):
                 except SQLException as e:
                     self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
 
-                # Make an artifact on the blackboard, TSK_PROG_RUN and give it attributes for each of the fields
-                # Make artifact for CKC_TSK_EVTX_LOGS
-                art_1 = file.newArtifact(artID_evtx_Long)
 
-                self.log(Level.INFO, "Type of Object is ==> " + str(type(Event_ID_Count)))
-
-                art_1.addAttributes(((BlackboardAttribute(attID_ev_ei, ArtifactGroupFactory.moduleName,
-                                                          Event_Identifier)), \
-                                     (BlackboardAttribute(attID_ev_cnt, ArtifactGroupFactory.moduleName,
-                                                          Event_ID_Count))))
-
-            self.log(Level.INFO, "test1")
+            #self.log(Level.INFO, "test1")
             # Clean up
             stmt_1.close()
             stmt.close()
             #dbConn.close()
             #os.remove(lclDbPath)
-            self.log(Level.INFO, "mission failed 1")
+            #self.log(Level.INFO, "mission failed 1")
             # Clean up EventLog directory and files
             for file in files:
                 try:
@@ -474,6 +451,7 @@ class ArtifactGroup(DataSourceIngestModule):
                 self.log(Level.INFO, "Artifact cannot be created. Moved to next.")
 
         # Get Devices Attached from blackboard ////////////////////////
+        skCase = Case.getCurrentCase().getSleuthkitCase()
         artDevicesAttID = skCase.getArtifactTypeID("TSK_DEVICE_ATTACHED")
         # print it to the log file
         self.log(Level.INFO, "Artifact type ID of TSK_DEVICE_ATTACHED:  " + str(artDevicesAttID))
@@ -488,13 +466,12 @@ class ArtifactGroup(DataSourceIngestModule):
             # if the artifact type already exists do nothing
             self.log(Level.INFO, "TSK_CKC_DEVICE_ATTACHED artifact already exists")
 
-        # first we need to get the IDs of the TSK_CKC_WEB_DOWNLOAD and of the attributes of the TSK_WEB_DOWNLOAD
+        # first we need to get the IDs of the TSK_CKC_DEVICE_ATTACHED and of the attributes of the TSK_WEB_DOWNLOAD
         artID_CKC_DEVICE_ATTACHED = skCase.getArtifactTypeID("TSK_CKC_DEVICE_ATTACHED")
         attID_TSK_DATETIME = skCase.getAttributeType("TSK_DATETIME")
         attID_TSK_DEVICE_MAKE = skCase.getAttributeType("TSK_DEVICE_MAKE")
         attID_TSK_DEVICE_MODEL = skCase.getAttributeType("TSK_DEVICE_MODEL")
         attID_TSK_DEVICE_ID = skCase.getAttributeType("TSK_DEVICE_ID")
-        attID_TSK_PATH_ID = skCase.getAttributeType("TSK_PATH_ID")
 
         for attDArt in artDevicesAttArtifacts:
             # get the obj_id -> this is the ID of the Source file
@@ -506,15 +483,13 @@ class ArtifactGroup(DataSourceIngestModule):
                 art = sourceFile.newArtifact(artID_CKC_DEVICE_ATTACHED)
                 art.addAttributes((
                     (BlackboardAttribute(attID_TSK_DATETIME, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_DATETIME).getValueString())), \
+                                         attDArt.getAttribute(attID_TSK_DATETIME).getValueLong())), \
                     (BlackboardAttribute(attID_TSK_DEVICE_MAKE, ArtifactGroupFactory.moduleName,
                                          attDArt.getAttribute(attID_TSK_DEVICE_MAKE).getValueString())), \
                     (BlackboardAttribute(attID_TSK_DEVICE_MODEL, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_DEVICE_MODEL).getValueLong())), \
+                                         attDArt.getAttribute(attID_TSK_DEVICE_MODEL).getValueString())), \
                     (BlackboardAttribute(attID_TSK_DEVICE_ID, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_DEVICE_ID).getValueString())), \
-                    (BlackboardAttribute(attID_TSK_PATH_ID, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_PATH_ID).getValueLong()))
+                                         attDArt.getAttribute(attID_TSK_DEVICE_ID).getValueString()))
                 ))
             except:
                 self.log(Level.INFO, "Artifact cannot be created. Moved to next.")
