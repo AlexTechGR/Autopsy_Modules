@@ -89,13 +89,13 @@ class ArtifactGroup(DataSourceIngestModule):
 
         # Get Devices Attached from blackboard ////////////////////////
         skCase = Case.getCurrentCase().getSleuthkitCase()
-        artDevicesAttID = skCase.getArtifactTypeID("TSK_DEVICE_ATTACHED")
+        artDevicesID = skCase.getArtifactTypeID("TSK_DEVICE_ATTACHED")
         # print it to the log file
-        self.log(Level.INFO, "Artifact type ID of TSK_DEVICE_ATTACHED:  " + str(artDevicesAttID))
+        self.log(Level.INFO, "Artifact type ID of TSK_DEVICE_ATTACHED:  " + str(artDevicesID))
         # get all artifacts that have this type ID from the database using the Sleuthkit API - not the database via sql queries
-        artDevicesAttArtifacts = skCase.getBlackboardArtifacts(artDevicesAttID)
+        devicesAttArtifacts = skCase.getBlackboardArtifacts(artDevicesID)
         # print the number of the artifacts in the log file
-        self.log(Level.INFO, "Number of TSK_DEVICE_ATTACHED artifacts found:  " + str(len(artDevicesAttArtifacts)))
+        self.log(Level.INFO, "Number of TSK_DEVICE_ATTACHED artifacts found:  " + str(len(devicesAttArtifacts)))
         # create new artifact type
         try:
             skCase.addArtifactType("TSK_CKC_DEVICE_ATTACHED", "CKC Delivery Device Attached")
@@ -103,15 +103,14 @@ class ArtifactGroup(DataSourceIngestModule):
             # if the artifact type already exists do nothing
             self.log(Level.INFO, "TSK_CKC_DEVICE_ATTACHED artifact already exists")
 
-        # first we need to get the IDs of the TSK_CKC_DEVICE_ATTACHED and of the attributes of the TSK_WEB_DOWNLOAD
+        # first we need to get the IDs of the TSK_CKC_DEVICE_ATTACHED and of the attributes of the TSK_CKC_DEVICE_ATTACHED
         artID_CKC_DEVICE_ATTACHED = skCase.getArtifactTypeID("TSK_CKC_DEVICE_ATTACHED")
         attID_TSK_DATETIME = skCase.getAttributeType("TSK_DATETIME")
         attID_TSK_DEVICE_MAKE = skCase.getAttributeType("TSK_DEVICE_MAKE")
         attID_TSK_DEVICE_MODEL = skCase.getAttributeType("TSK_DEVICE_MODEL")
         attID_TSK_DEVICE_ID = skCase.getAttributeType("TSK_DEVICE_ID")
-        attID_TSK_PATH_ID = skCase.getAttributeType("TSK_PATH_ID")
 
-        for attDArt in artDevicesAttArtifacts:
+        for attDArt in devicesAttArtifacts:
             # get the obj_id -> this is the ID of the Source file
             sourceFileID = attDArt.getObjectID()
             # get the actual file using its obj_id
@@ -127,14 +126,11 @@ class ArtifactGroup(DataSourceIngestModule):
                     (BlackboardAttribute(attID_TSK_DEVICE_MODEL, ArtifactGroupFactory.moduleName,
                                          attDArt.getAttribute(attID_TSK_DEVICE_MODEL).getValueString())), \
                     (BlackboardAttribute(attID_TSK_DEVICE_ID, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_DEVICE_ID).getValueString())), \
-                    (BlackboardAttribute(attID_TSK_PATH_ID, ArtifactGroupFactory.moduleName,
-                                         attDArt.getAttribute(attID_TSK_PATH_ID).getValueLong()))
+                                         attDArt.getAttribute(attID_TSK_DEVICE_ID).getValueString()))
                 ))
             except:
                 self.log(Level.INFO, "Artifact cannot be created. Moved to next.")
 
-        dbConn.close()
         return IngestModule.ProcessResult.OK
 
     def shutDown(self):
