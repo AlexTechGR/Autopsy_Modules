@@ -1,4 +1,3 @@
-#imports for evtx
 from java.lang import Class
 from java.lang import System
 from java.sql import DriverManager, SQLException
@@ -34,20 +33,16 @@ from org.sleuthkit.autopsy.casemodule.services import FileManager
 from org.sleuthkit.autopsy.datamodel import ContentUtils
 from org.sleuthkit.datamodel.blackboardutils.attributes import BlackboardJsonAttrUtil
 
-# Factory that defines the name and details of the module and allows Autopsy
-# to create instances of the modules that will do the anlaysis.
-# TODO: Rename this to something more specific.  Search and replace for it because it is used a few times
+
 class ArtifactGroupFactory(IngestModuleFactoryAdapter):
 
-    # TODO: give it a unique name.  Will be shown in module list, logs, etc.
-    moduleName = "Mail File and URL Attachments (CKC)"
+    moduleName = "CKC - Delivery - Email Attachments"
 
     def getModuleDisplayName(self):
         return self.moduleName
 
-    # TODO: Give it a description
     def getModuleDescription(self):
-        return "Groups artifacts by CKC phase"
+        return "Finds Email Attachments (CKC - Delivery)"
 
     def getModuleVersionNumber(self):
         return "1.0"
@@ -59,10 +54,6 @@ class ArtifactGroupFactory(IngestModuleFactoryAdapter):
         return ArtifactGroup()
 
 
-
-# File-level ingest module.  One gets created per thread.
-# TODO: Rename this to something more specific. Could just remove "Factory" from above name.
-# Looks at the attributes of the passed in file.
 class ArtifactGroup(DataSourceIngestModule):
 
     _logger = Logger.getLogger(ArtifactGroupFactory.moduleName)
@@ -72,19 +63,12 @@ class ArtifactGroup(DataSourceIngestModule):
     def __init__(self):
         self.context = None
 
-    # Where any setup and configuration is done
-    # 'context' is an instance of org.sleuthkit.autopsy.ingest.IngestJobContext.
-    # See: http://sleuthkit.org/autopsy/docs/api-docs/4.6.0/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_ingest_job_context.html
-    # TODO: Add any setup code that you need here.
     def startUp(self, context):
         self.context = context
 
     pass
 
-    # Where the analysis is done.  Each file will be passed into here.
-    # The 'file' object being passed in is of type org.sleuthkit.datamodel.AbstractFile.
-    # See: http://www.sleuthkit.org/sleuthkit/docs/jni-docs/4.6.0/classorg_1_1sleuthkit_1_1datamodel_1_1_abstract_file.html
-    # TODO: Add your analysis code in here.
+
     def process(self, dataSource, progressBar):
 
         progressBar.switchToIndeterminate()

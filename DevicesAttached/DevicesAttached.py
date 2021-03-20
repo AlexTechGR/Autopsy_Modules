@@ -101,6 +101,7 @@ class ArtifactGroup(DataSourceIngestModule):
             sourceFile = skCase.getAbstractFileById(sourceFileID)
             # create a TSK_CKC_WEB_DOWNLOAD blackboard artifact based on this TSK_WEB_DOWNLOAD
             try:
+
                 art = sourceFile.newArtifact(artID_CKC_DEVICE_ATTACHED)
                 art.addAttributes((
                     (BlackboardAttribute(attID_TSK_DATETIME, ArtifactGroupFactory.moduleName,
@@ -112,6 +113,10 @@ class ArtifactGroup(DataSourceIngestModule):
                     (BlackboardAttribute(attID_TSK_DEVICE_ID, ArtifactGroupFactory.moduleName,
                                          attDArt.getAttribute(attID_TSK_DEVICE_ID).getValueString()))
                 ))
+                try:
+                    blackboard.postArtifact(art)
+                except:
+                    pass
             except:
                 self.log(Level.INFO, "Artifact cannot be created. Moved to next.")
 
