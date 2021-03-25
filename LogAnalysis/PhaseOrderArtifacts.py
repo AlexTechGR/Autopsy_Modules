@@ -353,35 +353,27 @@ class ArtifactGroup(DataSourceIngestModule):
             #                          (BlackboardAttribute(attID_ev_cnt, ArtifactGroupFactory.moduleName,
             #                                               Event_ID_Count))))
 
-            self.log(Level.INFO, "test1")
-            # Clean up
-            stmt_1.close()
-            stmt.close()
-            dbConn.close()
-            os.remove(lclDbPath)
-            self.log(Level.INFO, "mission failed 1")
-            # Clean up EventLog directory and files
-            for file in files:
-                try:
-                    os.remove(os.path.join(temp_dir, file.getName()))
-                except:
-                    self.log(Level.INFO, "removal of Event Log file failed " + os.path.join(temp_dir, file.getName()))
+        self.log(Level.INFO, "Cleaning files and stop DB connection")
+        stmt_1.close()
+        stmt.close()
+        dbConn.close()
+        os.remove(lclDbPath)
+        self.log(Level.INFO, "mission failed 1")
+        # Clean up EventLog directory and files
+        for file in files:
             try:
-                os.rmdir(temp_dir)
+                os.remove(os.path.join(temp_dir, file.getName()))
             except:
-                self.log(Level.INFO, "removal of Event Logs directory failed " + temp_dir)
-
-            self.log(Level.INFO, "mission failed 2")
-            # After all databases, post a message to the ingest messages in box.
-            message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
-                                                  "ParseEvtx", " Event Logs have been parsed ")
-            IngestServices.getInstance().postMessage(message)
-            self.log(Level.INFO, "mission failed 3")
+                self.log(Level.INFO, "removal of Event Log file failed " + os.path.join(temp_dir, file.getName()))
+        try:
+            os.rmdir(temp_dir)
+        except:
+            self.log(Level.INFO, "removal of Event Logs directory failed " + temp_dir)
+        # After all databases, post a message to the ingest messages in box.
+        message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
+                                              "ParseEvtx", " Event Logs have been parsed ")
+        IngestServices.getInstance().postMessage(message)
         self.log(Level.INFO, "Procces EVTX complte")
-
-
-
-
         dbConn.close()
         return IngestModule.ProcessResult.OK
 
